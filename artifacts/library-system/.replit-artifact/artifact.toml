@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Library Management System"
+description = "A simple library management app for maintaining books and members, searching the catalog, checking books out, and recording returns through a C++ API backed by a database."
+version = "1.0.0"
+id = "artifacts/library-system"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25966
+
+[services.development]
+run = "pnpm --filter @workspace/library-system run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/library-system", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/library-system/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25966"
+BASE_PATH = "/"

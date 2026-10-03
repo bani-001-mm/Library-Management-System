@@ -3,20 +3,19 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Library catalog, members, and lending API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: library
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +23,253 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [library]
+      summary: Get library overview counts
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+  /books:
+    get:
+      operationId: getBooks
+      tags: [library]
+      summary: List books, optionally filtered by search text
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Book catalog
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Book"
+    post:
+      operationId: createBook
+      tags: [library]
+      summary: Add a book to the catalog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookInput"
+      responses:
+        "201":
+          description: Book created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
+  /books/{bookId}:
+    patch:
+      operationId: updateBook
+      tags: [library]
+      summary: Update a book
+      parameters:
+        - in: path
+          name: bookId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookUpdate"
+      responses:
+        "200":
+          description: Updated book
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Book"
+        "404":
+          description: Book not found
+    delete:
+      operationId: deleteBook
+      tags: [library]
+      summary: Remove a book from the catalog
+      parameters:
+        - in: path
+          name: bookId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Book deleted
+        "404":
+          description: Book not found
+        "409":
+          description: Book has an active loan
+  /members:
+    get:
+      operationId: getMembers
+      tags: [library]
+      summary: List members, optionally filtered by search text
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Library members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Member"
+    post:
+      operationId: createMember
+      tags: [library]
+      summary: Register a library member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberInput"
+      responses:
+        "201":
+          description: Member created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+  /members/{memberId}:
+    patch:
+      operationId: updateMember
+      tags: [library]
+      summary: Update a library member
+      parameters:
+        - in: path
+          name: memberId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberUpdate"
+      responses:
+        "200":
+          description: Updated member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        "404":
+          description: Member not found
+    delete:
+      operationId: deleteMember
+      tags: [library]
+      summary: Remove a member
+      parameters:
+        - in: path
+          name: memberId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Member deleted
+        "404":
+          description: Member not found
+        "409":
+          description: Member has an active loan
+  /loans:
+    get:
+      operationId: getLoans
+      tags: [library]
+      summary: List loans, optionally filtered by status
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [active, returned, overdue, all]
+      responses:
+        "200":
+          description: Loan history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Loan"
+    post:
+      operationId: issueLoan
+      tags: [library]
+      summary: Issue an available book to a member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoanInput"
+      responses:
+        "201":
+          description: Book issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Loan"
+        "404":
+          description: Book or member not found
+        "409":
+          description: No copies are available
+  /loans/{loanId}/return:
+    post:
+      operationId: returnLoan
+      tags: [library]
+      summary: Mark a loan as returned
+      parameters:
+        - in: path
+          name: loanId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Returned loan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Loan"
+        "404":
+          description: Loan not found
+        "409":
+          description: Loan has already been returned
+  /activity:
+    get:
+      operationId: getActivity
+      tags: [library]
+      summary: Get recent issue and return activity
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
 components:
   schemas:
     HealthStatus:
@@ -31,6 +277,94 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
-
+      required: [status]
+    Book:
+      type: object
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        author: { type: string }
+        isbn: { type: string }
+        category: { type: string }
+        totalCopies: { type: integer }
+        availableCopies: { type: integer }
+        createdAt: { type: string, format: date-time }
+      required: [id, title, author, isbn, category, totalCopies, availableCopies, createdAt]
+    BookInput:
+      type: object
+      properties:
+        title: { type: string, minLength: 1 }
+        author: { type: string, minLength: 1 }
+        isbn: { type: string, minLength: 1 }
+        category: { type: string, minLength: 1 }
+        totalCopies: { type: integer, minimum: 1 }
+      required: [title, author, isbn, category, totalCopies]
+    BookUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 1 }
+        author: { type: string, minLength: 1 }
+        isbn: { type: string, minLength: 1 }
+        category: { type: string, minLength: 1 }
+        totalCopies: { type: integer, minimum: 1 }
+    Member:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string, format: email }
+        phone: { type: ["string", "null"] }
+        joinedAt: { type: string, format: date-time }
+        activeLoans: { type: integer }
+      required: [id, name, email, phone, joinedAt, activeLoans]
+    MemberInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        email: { type: string, format: email }
+        phone: { type: ["string", "null"] }
+      required: [name, email]
+    MemberUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        email: { type: string, format: email }
+        phone: { type: ["string", "null"] }
+    Loan:
+      type: object
+      properties:
+        id: { type: integer }
+        bookId: { type: integer }
+        bookTitle: { type: string }
+        memberId: { type: integer }
+        memberName: { type: string }
+        issuedAt: { type: string, format: date-time }
+        dueAt: { type: string, format: date-time }
+        returnedAt: { type: ["string", "null"], format: date-time }
+        status: { type: string, enum: [active, returned, overdue] }
+      required: [id, bookId, bookTitle, memberId, memberName, issuedAt, dueAt, returnedAt, status]
+    LoanInput:
+      type: object
+      properties:
+        bookId: { type: integer }
+        memberId: { type: integer }
+      required: [bookId, memberId]
+    DashboardSummary:
+      type: object
+      properties:
+        totalBooks: { type: integer }
+        totalCopies: { type: integer }
+        availableCopies: { type: integer }
+        totalMembers: { type: integer }
+        activeLoans: { type: integer }
+        overdueLoans: { type: integer }
+      required: [totalBooks, totalCopies, availableCopies, totalMembers, activeLoans, overdueLoans]
+    ActivityItem:
+      type: object
+      properties:
+        id: { type: integer }
+        kind: { type: string, enum: [issued, returned] }
+        bookTitle: { type: string }
+        memberName: { type: string }
+        occurredAt: { type: string, format: date-time }
+      required: [id, kind, bookTitle, memberName, occurredAt]

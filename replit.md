@@ -1,45 +1,49 @@
-# [Project name]
+# Library Management System
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A small library desk app for managing the book catalogue, members, and loans from one browser-based interface.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- The `artifacts/library-system: web` workflow runs the React interface.
+- The `artifacts/api-server: API Server` workflow compiles and runs the C++ API.
+- `pnpm --filter @workspace/db run push` applies development database schema changes.
+- `pnpm --filter @workspace/api-spec run codegen` regenerates the typed frontend API client after OpenAPI changes.
+- `pnpm run typecheck` checks the TypeScript workspace packages.
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Frontend: React, Vite, TypeScript, Wouter, and generated React Query hooks.
+- API: C++17 HTTP server using POSIX sockets, nlohmann JSON, and libpq.
+- Database: PostgreSQL, with the Drizzle schema under `lib/db/src/schema/`.
+- Contract: `lib/api-spec/openapi.yaml` is the source for the generated client and API types.
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `artifacts/library-system/` — dashboard, catalogue, member register, and lending screens.
+- `artifacts/api-server/cpp/library_api.cpp` — C++ REST API and PostgreSQL queries.
+- `lib/db/src/schema/` — books, members, and loans tables.
+- `lib/api-spec/openapi.yaml` — endpoint and data contracts.
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- The library API is served directly by C++; its route handlers use parameterized PostgreSQL queries.
+- PostgreSQL tables are defined in Drizzle and applied with the development `push` command. The C++ server does not create or migrate tables at startup.
+- Loan records are retained as history, so a book or member with any linked loan cannot be deleted.
+- Issuing a book locks its catalogue row and checks availability inside a transaction.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Add, search, edit, and remove books and members.
+- Issue available copies to members, track due dates, and record returns.
+- Review active and overdue loans, dashboard counts, and recent activity.
+- Three example books, three example members, and one open loan are inserted into the development database to make the first screen useful.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Keep this project simple and use a C++ backend with a frontend, API calls, and a database.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
-
-## Pointers
-
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- If the database schema changes, run `pnpm --filter @workspace/db run push` before starting the API.
+- If an endpoint or response changes, update the OpenAPI contract, regenerate the client, and keep the C++ route in sync.
+- The API runs at `/api`; requests pass through the shared project proxy without stripping that prefix.

@@ -10,19 +10,18 @@ name = "API Server"
 paths = ["/api"]
 
 [services.development]
-run = "pnpm --filter @workspace/api-server run dev"
+run = "API_DIR=.; if [ ! -f cpp/library_api.cpp ]; then API_DIR=artifacts/api-server; fi; cd \"$API_DIR\" && mkdir -p bin && g++ $NIX_CFLAGS_COMPILE -std=c++17 -O2 -Wall -Wextra -pthread cpp/library_api.cpp $(pkg-config --cflags --libs libpq) -o bin/library-api && exec bin/library-api"
 
 [services.production]
 
 [services.production.build]
-args = ["pnpm", "--filter", "@workspace/api-server", "run", "build"]
+args = ["bash", "-lc", "if [ ! -f cpp/library_api.cpp ]; then cd artifacts/api-server; fi; mkdir -p bin && g++ $NIX_CFLAGS_COMPILE -std=c++17 -O2 -pthread cpp/library_api.cpp $(pkg-config --cflags --libs libpq) -o bin/library-api"]
 
 [services.production.build.env]
 NODE_ENV = "production"
 
 [services.production.run]
-# we don't run through pnpm to make startup faster in production
-args = ["node", "--enable-source-maps", "artifacts/api-server/dist/index.mjs"]
+args = ["bash", "-lc", "if [ -f artifacts/api-server/bin/library-api ]; then cd artifacts/api-server; fi; exec ./bin/library-api"]
 
 [services.production.run.env]
 PORT = "8080"
