@@ -4,8 +4,8 @@ import { Link, Route, Switch, useLocation } from 'wouter';
 import { useForm } from 'react-hook-form';
 import { Form } from '@/components/ui/form';
 import {
-  Activity, ArrowDownLeft, ArrowUpRight, BookOpen, Check, ChevronDown, CircleAlert,
-  Clock3, LayoutDashboard, LibraryBig, LoaderCircle, Menu, Plus, Search, Settings2,
+  Activity, ArrowDownLeft, ArrowUpRight, BookOpen, Check, CircleAlert,
+  Clock3, LayoutDashboard, LibraryBig, LoaderCircle, Menu, Plus, Search,
   UsersRound, X, Pencil, Trash2, RotateCcw, CalendarDays, ArrowRight, BadgeCheck,
 } from 'lucide-react';
 import {
@@ -18,6 +18,7 @@ import {
 } from '@workspace/api-client-react';
 import NotFound from '@/pages/not-found';
 import './index.css';
+import './reading-room.css';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 15000, retry: 1 } } });
 const navItems = [
@@ -131,61 +132,158 @@ function Shell({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   const health = useHealthCheck();
   const [mobileNav, setMobileNav] = useState(false);
-  const active = navItems.find((item) => item.href === location)?.label || 'Overview';
-  return <div className="app-shell">
-    <aside className={`sidebar ${mobileNav ? 'sidebar-open' : ''}`}>
-      <div className="brand"><div className="brand-mark"><BookOpen size={20} strokeWidth={1.8} /></div><div><b>Margin</b><small>COMMUNITY LIBRARY</small></div><button className="sidebar-close icon-button" onClick={() => setMobileNav(false)} aria-label="Close menu"><X size={17} /></button></div>
-      <div className="branch-badge"><span className="branch-dot" /><span><b>Willow Creek</b><small>Library desk</small></span><ChevronDown size={15} /></div>
-      <div className="nav-caption">WORKSPACE</div>
-      <nav className="main-nav">{navItems.map(({ href, label, icon: Icon }) => <Link href={href} key={href} onClick={() => setMobileNav(false)} className={`nav-link ${location === href ? 'nav-active' : ''}`} data-testid={`link-${label.toLowerCase().replaceAll(' ', '-')}`}><Icon size={17} strokeWidth={1.8} /><span>{label}</span>{label === 'Loans & returns' && <span className="nav-count" />}</Link>)}</nav>
-      <div className="sidebar-spacer" />
-      <div className="health-card"><span className={`health-dot ${health.data?.status ? 'online' : health.isError ? 'offline' : ''}`} /><div><b>{health.isLoading ? 'Checking connection' : health.isError ? 'Service unavailable' : 'Library service online'}</b><small>{health.isError ? 'Some actions may be limited' : 'All systems in order'}</small></div></div>
-      <div className="sidebar-footer"><div className="profile-avatar">MC</div><div className="profile-info"><b>Morgan Chen</b><small>Library staff</small></div><button className="icon-button footer-menu" aria-label="Account options" onClick={() => alert('You are signed in as Morgan Chen.')}><Settings2 size={16} /></button></div>
-    </aside>
-    {mobileNav && <button className="mobile-scrim" onClick={() => setMobileNav(false)} aria-label="Close navigation" />}
-    <main className="main-area"><div className="mobile-top"><button className="icon-button" onClick={() => setMobileNav(true)} aria-label="Open menu"><Menu size={20} /></button><span><BookOpen size={17} /> Margin</span><span className="mobile-status"><i /></span></div><div className="top-strip"><div className="crumb"><span>Willow Creek</span><span className="crumb-slash">/</span><b>{active}</b></div><div className="top-right"><span className="quiet-status"><i /> Open today until 6 pm</span><span className="top-divider" /><span className="staff-chip">MC</span><span className="staff-name">Morgan Chen</span></div></div>{children}</main>
+  return <div className="rr-app">
+    <header className="rr-header">
+      <Link href="/" className="rr-brand" onClick={() => setMobileNav(false)} aria-label="Margin library overview">
+        <span className="rr-brand-mark"><BookOpen size={21} strokeWidth={1.7} /></span>
+        <span className="rr-brand-type"><b>Margin</b><small>WILLOW CREEK LIBRARY</small></span>
+      </Link>
+      <nav className={`rr-nav ${mobileNav ? 'rr-nav-open' : ''}`} aria-label="Main navigation">
+        {navItems.map(({ href, label, icon: Icon }) => <Link
+          href={href}
+          key={href}
+          onClick={() => setMobileNav(false)}
+          className={`rr-nav-item ${location === href ? 'is-active' : ''}`}
+          aria-current={location === href ? 'page' : undefined}
+          data-testid={`link-${label.toLowerCase().replaceAll(' ', '-')}`}
+        ><Icon size={15} strokeWidth={1.8} /><span>{label}</span></Link>)}
+      </nav>
+      <div className="rr-header-right">
+        <span className="rr-open-status" aria-live="polite">
+          <i className={health.data?.status === 'ok' ? 'is-online' : health.isError ? 'is-offline' : ''} />
+          {health.isLoading ? 'Checking library service' : health.isError ? 'Library service unavailable' : 'Library service online'}
+        </span>
+        <span className="rr-header-rule" />
+        <span className="rr-staff-avatar">MC</span>
+        <span className="rr-staff-name">Morgan Chen</span>
+        <button className="rr-mobile-menu" onClick={() => setMobileNav((open) => !open)} aria-label={mobileNav ? 'Close navigation' : 'Open navigation'} aria-expanded={mobileNav}><Menu size={18} /></button>
+      </div>
+    </header>
+    <main className="rr-main">
+      {children}
+      <footer className="rr-footer">
+        <span><span className="rr-footer-dot" />{health.data?.status === 'ok' ? 'Library service online' : 'Willow Creek library desk'}</span>
+        <span>WILLOW CREEK <i>·</i> A PLACE FOR EVERY STORY</span>
+      </footer>
+    </main>
   </div>;
 }
 
 function Overview() {
-  const qc = useQueryClient();
   const summary = useGetDashboard();
   const activity = useGetActivity();
-  const loans = useGetLoans({ status: 'active' });
+  const loans = useGetLoans({ status: 'all' });
   const [modal, setModal] = useState<FormKind | null>(null);
-  const refresh = () => { summary.refetch(); activity.refetch(); loans.refetch(); };
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const refresh = () => { void Promise.all([summary.refetch(), activity.refetch(), loans.refetch()]); };
   const stats = summary.data;
-  return <div className="page-content">
-    <TopBar title="A good day to read." subtitle="Here’s what’s happening around your library." action={<button className="button button-primary" onClick={() => setModal('loan')} data-testid="button-issue-book"><Plus size={16} /> Issue a book</button>} />
-    {summary.isLoading ? <PageLoading /> : summary.isError ? <QueryError onRetry={refresh} /> : <div className="overview-grid">
-      <section className="metrics-panel">
-        <div className="section-heading"><div><div className="eyebrow">AT A GLANCE</div><h2>Your library, today</h2></div><span className="subtle-date"><CalendarDays size={14} /> Today</span></div>
-        <div className="metric-grid">
-          <div className="metric-card metric-featured"><div className="metric-label">IN THE CATALOGUE <BookOpen size={17} /></div><strong>{stats?.totalBooks ?? '—'}</strong><div className="metric-bottom"><span>{stats?.totalCopies ?? 0} total copies</span><span className="metric-sep" /><span>{stats?.availableCopies ?? 0} available</span></div></div>
-          <div className="metric-card"><div className="metric-label">READERS <UsersRound size={16} /></div><strong>{stats?.totalMembers ?? '—'}</strong><div className="metric-bottom">Registered members</div></div>
-          <div className="metric-card"><div className="metric-label">OUT ON LOAN <ArrowUpRight size={16} /></div><strong>{stats?.activeLoans ?? '—'}</strong><div className="metric-bottom">Books with readers</div></div>
-          <div className={`metric-card ${stats?.overdueLoans ? 'metric-alert' : ''}`}><div className="metric-label">NEEDS ATTENTION <Clock3 size={16} /></div><strong>{stats?.overdueLoans ?? '—'}</strong><div className="metric-bottom">{stats?.overdueLoans ? 'Overdue returns' : 'No overdue books'}</div></div>
+  const activeLoans = (loans.data || []).filter((loan) => loan.status !== 'returned');
+  const searchTerm = search.trim().toLowerCase();
+  const visibleLoans = activeLoans.filter((loan) => !searchTerm || `${loan.bookTitle} ${loan.memberName}`.toLowerCase().includes(searchTerm));
+  const today = new Date().toLocaleDateString('en', { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase();
+  return <div className="page-content rr-dashboard">
+    <section className="rr-intro">
+      <div>
+        <div className="rr-kicker"><span>THE READING ROOM</span><i />{today}</div>
+        <h1>A good day <em>to read.</em></h1>
+        <p>Here’s what’s happening around your library.</p>
+      </div>
+      <div className="rr-intro-actions">
+        <button className="rr-quiet-action" onClick={() => setSearchOpen((open) => !open)} aria-label={searchOpen ? 'Close loan search' : 'Search active loans'} aria-expanded={searchOpen}>
+          {searchOpen ? <X size={17} /> : <Search size={17} />}
+        </button>
+        <button className="rr-issue-button" onClick={() => setModal('loan')} data-testid="button-issue-book"><Plus size={16} />Issue a book</button>
+      </div>
+    </section>
+    {searchOpen && <label className="rr-search-bar">
+      <Search size={16} />
+      <input autoFocus value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Find a book or reader in the lending desk…" aria-label="Search active loans" />
+      {search && <button onClick={() => setSearch('')} aria-label="Clear search"><X size={15} /></button>}
+    </label>}
+    <section className="rr-today" aria-label="Library at a glance">
+      <div className="rr-today-heading">
+        <span className="rr-today-seal"><BookOpen size={18} /></span>
+        <span>YOUR LIBRARY, TODAY</span>
+        <span className="rr-today-date"><CalendarDays size={13} /> AT A GLANCE</span>
+      </div>
+      {summary.isError
+        ? <div className="rr-summary-error"><QueryError onRetry={refresh} /></div>
+        : <div className="rr-stat-strip">
+          <div className="rr-stat rr-stat-feature"><span>IN THE CATALOGUE</span><strong>{stats?.totalBooks ?? '—'}</strong><small>{stats?.totalCopies ?? '—'} total copies</small></div>
+          <div className="rr-stat"><span>READERS</span><strong>{stats?.totalMembers ?? '—'}</strong><small>registered members</small></div>
+          <div className="rr-stat"><span>OUT ON LOAN</span><strong>{stats?.activeLoans ?? '—'}</strong><small>books with readers</small></div>
+          <div className={`rr-stat rr-stat-alert ${stats?.overdueLoans ? 'has-overdue' : ''}`}><span>NEEDS ATTENTION</span><strong>{stats?.overdueLoans ?? '—'}</strong><small>{stats?.overdueLoans ? 'overdue returns' : 'No overdue books'}</small></div>
+        </div>}
+      <div className="rr-availability">
+        <span className="rr-availability-mark"><Check size={15} /></span>
+        <b>{stats?.availableCopies ?? '—'} copies ready to go</b>
+        <span>Available for your next reader.</span>
+        <Link href="/books">Browse catalogue <ArrowRight size={14} /></Link>
+      </div>
+    </section>
+    <div className="rr-workspace">
+      <section className="rr-loans">
+        <div className="rr-section-head">
+          <div>
+            <div className="rr-section-kicker">KEEP AN EYE ON <span>·</span> LENDING DESK</div>
+            <h2>Currently borrowed</h2>
+            <p>Showing {visibleLoans.length} of {stats?.activeLoans ?? activeLoans.length} books out in the community.</p>
+          </div>
+          <Link className="rr-all-link" href="/loans">All loans <ArrowRight size={15} /></Link>
         </div>
-        <div className="availability-note"><div className="availability-symbol"><LibraryBig size={18} /></div><div><b>{stats?.availableCopies ?? 0} copies ready to go</b><span>Available for your next reader.</span></div><Link href="/books" className="text-link">Browse catalogue <ArrowRight size={14} /></Link></div>
+        <div className="rr-loan-list">
+          {loans.isLoading
+            ? <div className="rr-loading-rows"><div className="skeleton skeleton-block" /><div className="skeleton skeleton-block" /><div className="skeleton skeleton-block" /></div>
+            : loans.isError
+              ? <QueryError onRetry={() => void loans.refetch()} />
+              : visibleLoans.length
+                ? visibleLoans.slice(0, 4).map((loan) => <MiniLoan loan={loan} key={loan.id} onReturn={refresh} />)
+                : <div className="rr-empty"><BadgeCheck size={18} /><b>{searchTerm ? 'No matching loans' : 'No books are currently checked out'}</b><span>{searchTerm ? 'Try another book title or reader.' : 'Issued books will appear here.'}</span></div>}
+        </div>
+        <div className="rr-loan-foot"><span><BookOpen size={14} /> {stats?.activeLoans ?? activeLoans.length} active loans in the register</span><Link href="/loans">Open lending register <ArrowRight size={14} /></Link></div>
       </section>
-      <section className="activity-panel">
-        <div className="section-heading"><div><div className="eyebrow">THE DESK LOG</div><h2>Recent activity</h2></div><Activity className="heading-icon" size={17} /></div>
-        {activity.isLoading ? <div className="activity-skeleton">{[1, 2, 3, 4].map((item) => <div className="skeleton skeleton-line" key={item} />)}</div> : activity.isError ? <QueryError onRetry={() => activity.refetch()} /> : activity.data?.length ? <div className="activity-list">{activity.data.slice(0, 7).map((item) => <div className="activity-item" key={item.id} data-testid={`activity-item-${item.id}`}><div className={`activity-symbol ${item.kind}`} aria-label={item.kind === 'issued' ? 'Book issued' : 'Book returned'}>{item.kind === 'issued' ? <ArrowUpRight size={15} /> : <ArrowDownLeft size={15} />}</div><div className="activity-copy"><b>{item.memberName}</b><span>{item.kind === 'issued' ? 'borrowed' : 'returned'} <em>{item.bookTitle}</em></span></div><time>{timeAgo(item.occurredAt)}</time></div>)}</div> : <EmptyState title="Quiet at the desk" detail="New checkouts and returns will show up here." />}
-        <Link href="/loans" className="activity-footer">View lending activity <ArrowRight size={14} /></Link>
-      </section>
-      <section className="loan-preview">
-        <div className="section-heading"><div><div className="eyebrow">KEEP AN EYE ON</div><h2>Currently borrowed</h2></div><Link href="/loans" className="text-link">All loans <ArrowRight size={14} /></Link></div>
-        {loans.isLoading ? <div className="skeleton skeleton-block" /> : loans.isError ? <QueryError onRetry={() => loans.refetch()} /> : loans.data?.length ? <div className="mini-loans">{loans.data.slice(0, 4).map((loan) => <MiniLoan loan={loan} key={loan.id} onReturn={async () => { await Promise.all([loans.refetch(), summary.refetch(), activity.refetch()]); }} />)}</div> : <div className="quiet-empty"><BadgeCheck size={17} /> No books are currently checked out.</div>}
-      </section>
-      <section className="desk-note"><span className="note-flower" aria-hidden="true" /><div className="eyebrow">A NOTE FOR THE DAY</div><p>“A library is not a luxury but one of the necessities of life.”</p><small>— Henry Ward Beecher</small></section>
-    </div>}
+      <aside className="rr-activity">
+        <div className="rr-activity-head">
+          <div><div className="rr-section-kicker">THE DESK LOG</div><h2>Recent activity</h2></div>
+          <span className="rr-activity-icon"><Activity size={17} /></span>
+        </div>
+        {activity.isLoading
+          ? <div className="rr-timeline rr-activity-loading">{[1, 2, 3, 4].map((item) => <div className="skeleton skeleton-line" key={item} />)}</div>
+          : activity.isError
+            ? <QueryError onRetry={() => void activity.refetch()} />
+            : activity.data?.length
+              ? <div className="rr-timeline">{activity.data.slice(0, 4).map((item, index) => <div className="rr-activity-item" key={`${item.id}-${item.kind}`} data-testid={`activity-item-${item.id}`}>
+                <span className={`rr-activity-symbol ${item.kind}`} aria-label={item.kind === 'issued' ? 'Book issued' : 'Book returned'}><i>{item.kind === 'issued' ? <ArrowUpRight size={14} /> : <ArrowDownLeft size={14} />}</i></span>
+                <div className="rr-activity-copy"><div><b>{item.memberName}</b> <span>{item.kind === 'issued' ? 'borrowed' : 'returned'}</span></div><p>{item.bookTitle}</p><time>{timeAgo(item.occurredAt)}</time></div>
+                {index === 0 && <i className="rr-new-marker" />}
+              </div>)}</div>
+              : <div className="rr-empty"><Activity size={18} /><b>Quiet at the desk</b><span>New checkouts and returns will show up here.</span></div>}
+        <Link href="/loans" className="rr-activity-link">View lending activity <ArrowRight size={14} /></Link>
+        <div className="rr-desk-quote"><span className="rr-quote-rule" /><p>“A library is not a luxury but one of the necessities of life.”</p><small>HENRY WARD BEECHER</small></div>
+      </aside>
+    </div>
     {modal && <Editor kind={modal} onClose={() => setModal(null)} onSaved={() => { setModal(null); refresh(); }} />}
   </div>;
 }
 function MiniLoan({ loan, onReturn }: { loan: Loan; onReturn: () => void }) {
   const qc = useQueryClient();
   const returnMutation = useReturnLoan();
-  return <div className="mini-loan"><div className="mini-book-icon"><BookOpen size={16} /></div><div className="mini-loan-info"><b>{loan.bookTitle}</b><span>{loan.memberName}</span></div><span className={new Date(loan.dueAt) < new Date() ? 'due-text overdue-text' : 'due-text'}>{new Date(loan.dueAt) < new Date() ? 'Overdue' : `Due ${dateLabel(loan.dueAt)}`}</span><button className="tiny-action" disabled={returnMutation.isPending} onClick={async () => { if (window.confirm(`Mark “${loan.bookTitle}” returned by ${loan.memberName}?`)) { try { await returnMutation.mutateAsync({ loanId: loan.id }); await Promise.all([qc.invalidateQueries({ queryKey: getGetLoansQueryKey() }), qc.invalidateQueries({ queryKey: getGetBooksQueryKey() }), qc.invalidateQueries({ queryKey: getGetMembersQueryKey() }), qc.invalidateQueries({ queryKey: getGetDashboardQueryKey() }), qc.invalidateQueries({ queryKey: getGetActivityQueryKey() })]); onReturn(); } catch (error) { alert(serverError(error)); } } }} data-testid={`button-return-${loan.id}`}>Return</button></div>;
+  const overdue = loan.status === 'overdue';
+  return <article className="rr-loan-row" data-testid={`row-loan-${loan.id}`}>
+    <span className={`rr-book-cover cover-${['sage', 'ochre', 'rose', 'blue'][loan.bookId % 4]}`} aria-hidden="true"><span className="rr-cover-line" /><BookOpen size={18} strokeWidth={1.5} /></span>
+    <div className="rr-book-copy"><span className="rr-row-index">{String(loan.id).padStart(2, '0')} <i /></span><h3>{loan.bookTitle}</h3><p>Library collection</p></div>
+    <div className="rr-borrower"><span>WITH READER</span><b><i>{loan.memberName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</i>{loan.memberName}</b></div>
+    <div className={`rr-due ${overdue ? 'is-overdue' : ''}`}><span>{overdue ? 'PAST DUE' : 'DUE BACK'}</span><b>{dateLabel(loan.dueAt)}</b></div>
+    <button className="rr-return" disabled={returnMutation.isPending} onClick={async () => {
+      if (!window.confirm(`Mark “${loan.bookTitle}” returned by ${loan.memberName}?`)) return;
+      try {
+        await returnMutation.mutateAsync({ loanId: loan.id });
+        await Promise.all([qc.invalidateQueries({ queryKey: getGetLoansQueryKey() }), qc.invalidateQueries({ queryKey: getGetBooksQueryKey() }), qc.invalidateQueries({ queryKey: getGetMembersQueryKey() }), qc.invalidateQueries({ queryKey: getGetDashboardQueryKey() }), qc.invalidateQueries({ queryKey: getGetActivityQueryKey() })]);
+        onReturn();
+      } catch (error) { alert(serverError(error)); }
+    }} data-testid={`button-return-${loan.id}`}><ArrowDownLeft size={14} />Return</button>
+  </article>;
 }
 
 function BooksPage() {
